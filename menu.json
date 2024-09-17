@@ -1,0 +1,9 @@
+{
+    "event_menu": {
+        "reply_text": "К какому событию готовимся? Выберите один из вариантов, либо укажите свой.",
+        "def": "create_event_menu",
+        "buttons": [
+            {"text": "Другой повод", "callback": "other_event"}
+        ]
+    }
+}

@@ -1,0 +1,5 @@
+python-telegram-bot==13.5
+pillow==10.4.0
+Django==5.1.1
+django-phone-field==1.8.1
+environs==5.2.1
