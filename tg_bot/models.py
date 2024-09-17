@@ -41,13 +41,47 @@ class Category(models.Model):
         verbose_name_plural = "Категории"
 
 
+class PriceRange(models.Model):
+    """
+    Модель ценовых категорий
+    """
+    min_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+                                    verbose_name='Минимальная цена')
+    max_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+                                    verbose_name='Максимальная цена')
+
+    def __str__(self):
+        if self.min_price and self.max_price:
+            return f"{self.min_price} - {self.max_price} руб"
+        elif self.min_price:
+            return f"от {self.min_price} руб"
+        elif self.max_price:
+            return f"до {self.max_price} руб"
+        else:
+            return "Без ограничения"
+
+    class Meta:
+        verbose_name = "Ценовой диапазон"
+        verbose_name_plural = "Ценовые диапазоны"
+
+    def get_products(self):
+        if self.min_price and self.max_price:
+            return Product.objects.filter(price__gte=self.min_price, price__lte=self.max_price)
+        elif self.min_price:
+            return Product.objects.filter(price__gte=self.min_price)
+        elif self.max_price:
+            return Product.objects.filter(price__lte=self.max_price)
+        else:
+            return Product.objects.all()
+
+
 class Product(models.Model):
     """
     Модель товара.
     """
     id = models.AutoField(primary_key=True, editable=False)
     name = models.CharField(max_length=30, verbose_name='Название')
-    description = models.TextField(verbose_name='Описание')
+    description = models.TextField(max_length=300, verbose_name='Описание')
     price = models.DecimalField(max_digits=8, decimal_places=2, verbose_name='Цена')
     categories = models.ManyToManyField(Category, verbose_name='Категории')
     image = models.ImageField(upload_to='static/products/', verbose_name='Изображение')
@@ -72,6 +106,7 @@ class Order(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Товар')
     user = models.ForeignKey(UserBot, on_delete=models.CASCADE,
                              related_name='user_orders', verbose_name='Пользователь')
+    comment = models.TextField(max_length=300, verbose_name='Комментарий к заказу', null=True, blank=True,)
     delivery_address = models.CharField(max_length=200, verbose_name='Адрес доставки')
     desired_delivery_date = models.DateTimeField(verbose_name='Дата и время желаемой доставки')
     creation_date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время создания заказа')
