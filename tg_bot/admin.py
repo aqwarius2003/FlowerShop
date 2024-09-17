@@ -15,6 +15,23 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name',)  # Отображение только названия категории
     search_fields = ('name',)  # Поиск по названию категории
 
+# @admin.register(PriceRange)
+# class CategoryAdmin(admin.ModelAdmin):
+#     list_display = ('min_price', 'max_price', 'get_price_range')
+#
+#     def get_price_range(self, obj):
+#         if obj.min_price and obj.max_price:
+#             return f"{obj.min_price} - {obj.max_price} руб"
+#         elif obj.min_price:
+#             return f"от {obj.min_price} руб"
+#         elif obj.max_price:
+#             return f"до {obj.max_price} руб"
+#         else:
+#             return "Без ограничения"
+#
+#     get_price_range.short_description = 'Ценовой диапазон'
+
+
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
