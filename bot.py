@@ -24,7 +24,7 @@ def manager_orders(update: Update, context: CallbackContext):
         update.message.reply_text("У вас нет прав для просмотра заказов.")
         return
 
-    orders = Order.objects.filter(status="created")
+    orders = Order.objects.filter(status__in=["created", "inWork", "inDelivery"])
 
     if not orders.exists():
         update.message.reply_text("Заказов пока нет.")
@@ -60,6 +60,7 @@ def handle_order_selection(update: Update, context: CallbackContext):
         f"💰 Стоимость: {order.product.price} руб.\n"
         f"📞 Телефон: {order.user.phone}\n"
         f"🏠 Адрес доставки: {order.delivery_address}\n"
+        f"Статус: {order.get_status_display()}\n"
         f"📦 Выбранный доставщик: {order.delivery_person}\n"
     )
 
