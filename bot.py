@@ -118,14 +118,11 @@ def assign_delivery(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    # Получаем ID заказа
     order_id = query.data.split("_")[2]
     order = Order.objects.get(id=int(order_id))
 
-    # Получаем список всех доставщиков
     delivery_people = UserBot.objects.filter(status="delivery")
 
-    # Создаем кнопки для каждого доставщика
     keyboard = [
         [
             InlineKeyboardButton(
@@ -147,12 +144,10 @@ def set_delivery_person(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    # Получаем ID заказа и ID нового доставщика
     _, order_id, delivery_person_id = query.data.split("_")
     order = Order.objects.get(id=int(order_id))
     delivery_person = UserBot.objects.get(user_id=delivery_person_id)
 
-    # Обновляем доставщика для заказа
     order.delivery_person = delivery_person
     order.save()
 
