@@ -17,12 +17,23 @@ from tg_bot.models import Category, Order, Product, UserBot
 
 
 def delivery_orders(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
+    if update.message:
+        user_id = update.message.from_user.id
+    elif update.callback_query:
+        user_id = update.callback_query.from_user.id
+    else:
+        return  # TODO: Добавить проверка если id доставщика не найдено
+
     logger.info("Открыто меню доставщика")
 
     delivery_person = UserBot.objects.filter(user_id=user_id, status="delivery").first()
     if not delivery_person:
-        update.message.reply_text("У вас нет прав для просмотра заказов.")
+        if update.message:
+            update.message.reply_text("У вас нет прав для просмотра заказов.")
+        elif update.callback_query:
+            update.callback_query.message.reply_text(
+                "У вас нет прав для просмотра заказов."
+            )
         return
 
     orders = Order.objects.filter(
@@ -30,7 +41,10 @@ def delivery_orders(update: Update, context: CallbackContext):
     )
 
     if not orders.exists():
-        update.message.reply_text("У вас нет заказов для доставки.")
+        if update.message:
+            update.message.reply_text("У вас нет заказов для доставки.")
+        elif update.callback_query:
+            update.callback_query.message.reply_text("У вас нет заказов для доставки.")
         return
 
     keyboard = []
@@ -45,21 +59,23 @@ def delivery_orders(update: Update, context: CallbackContext):
         )
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Список ваших заказов:", reply_markup=reply_markup)
+    if update.message:
+        update.message.reply_text("Список ваших заказов:", reply_markup=reply_markup)
+    elif update.callback_query:
+        update.callback_query.message.reply_text(
+            "Список ваших заказов:", reply_markup=reply_markup
+        )
 
 
 def handle_delivery_order(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    # Получаем ID заказа
     order_id = query.data.split("_")[2]
     order = Order.objects.get(id=int(order_id))
 
-    # Доступные статусы для изменения доставщиком
     delivery_status_choices = [("inDelivery", "В пути"), ("delivered", "Доставлен")]
 
-    # Создаем клавиатуру для изменения статуса заказа
     keyboard = [
         [
             InlineKeyboardButton(
@@ -68,6 +84,10 @@ def handle_delivery_order(update: Update, context: CallbackContext):
         ]
         for status in delivery_status_choices
     ]
+
+    keyboard.append(
+        [InlineKeyboardButton("Назад", callback_data="back_to_delivery_orders")]
+    )
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
@@ -83,15 +103,20 @@ def handle_delivery_order(update: Update, context: CallbackContext):
     )
 
 
+def go_back_to_delivery_orders(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+
+    delivery_orders(update, context)
+
+
 def set_delivery_status(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    # Получаем ID заказа и новый статус
     _, order_id, new_status = query.data.split("_")
     order = Order.objects.get(id=int(order_id))
 
-    # Изменяем статус заказа
     order.status = new_status
     order.save()
 
@@ -410,6 +435,11 @@ if __name__ == "__main__":
     dispatcher.add_handler(CommandHandler("delivery", delivery_orders))
     dispatcher.add_handler(
         CallbackQueryHandler(handle_order_selection, pattern="^order_admin_")
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(
+            go_back_to_delivery_orders, pattern="^back_to_delivery_orders$"
+        )
     )
     dispatcher.add_handler(
         CallbackQueryHandler(change_order_status, pattern="^change_status_")
