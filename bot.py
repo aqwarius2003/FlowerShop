@@ -16,9 +16,93 @@ django.setup()  # Инициализация Django
 from tg_bot.models import Category, Order, Product, UserBot
 
 
+def delivery_orders(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    logger.info("Открыто меню доставщика")
+
+    delivery_person = UserBot.objects.filter(user_id=user_id, status="delivery").first()
+    if not delivery_person:
+        update.message.reply_text("У вас нет прав для просмотра заказов.")
+        return
+
+    orders = Order.objects.filter(
+        delivery_person=delivery_person, status__in=["inDelivery"]
+    )
+
+    if not orders.exists():
+        update.message.reply_text("У вас нет заказов для доставки.")
+        return
+
+    keyboard = []
+    for order in orders:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"Заказ {order.id} - {order.product}",
+                    callback_data=f"order_delivery_{order.id}",
+                )
+            ]
+        )
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("Список ваших заказов:", reply_markup=reply_markup)
+
+
+def handle_delivery_order(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+
+    # Получаем ID заказа
+    order_id = query.data.split("_")[2]
+    order = Order.objects.get(id=int(order_id))
+
+    # Доступные статусы для изменения доставщиком
+    delivery_status_choices = [("inDelivery", "В пути"), ("delivered", "Доставлен")]
+
+    # Создаем клавиатуру для изменения статуса заказа
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                status[1], callback_data=f"setDeliveryStatus_{order.id}_{status[0]}"
+            )
+        ]
+        for status in delivery_status_choices
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text(
+        f"👤 Имя: {order.user}\n"
+        f"📅 Дата и время желаемой доставки: {order.desired_delivery_date}\n"
+        f"💐 Букет: {order.product.name}\n"
+        f"💰 Стоимость: {order.product.price} руб.\n"
+        f"📞 Телефон: {order.user.phone}\n"
+        f"🏠 Адрес доставки: {order.delivery_address}\n"
+        f"Текущий статус {order.get_status_display()} \n"
+        f"Выберите новый статус для заказа {order.id}:",
+        reply_markup=reply_markup,
+    )
+
+
+def set_delivery_status(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+
+    # Получаем ID заказа и новый статус
+    _, order_id, new_status = query.data.split("_")
+    order = Order.objects.get(id=int(order_id))
+
+    # Изменяем статус заказа
+    order.status = new_status
+    order.save()
+
+    query.edit_message_text(
+        f"Статус заказа {order.id} успешно изменён на {dict(Order.STATUS_CHOICES).get(new_status)}"
+    )
+
+
 def manager_orders(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    print(user_id)
+    logger.info("Открыто меню менеджера")
 
     if user_id in UserBot.objects.filter(status="manager"):
         update.message.reply_text("У вас нет прав для просмотра заказов.")
@@ -323,6 +407,7 @@ if __name__ == "__main__":
     # Хендлеры
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("manager", manager_orders))
+    dispatcher.add_handler(CommandHandler("delivery", delivery_orders))
     dispatcher.add_handler(
         CallbackQueryHandler(handle_order_selection, pattern="^order_admin_")
     )
@@ -337,6 +422,12 @@ if __name__ == "__main__":
     )
     dispatcher.add_handler(
         CallbackQueryHandler(set_delivery_person, pattern="^setDelivery_")
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(handle_delivery_order, pattern="^order_delivery_")
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(set_delivery_status, pattern="^setDeliveryStatus_")
     )
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CallbackQueryHandler(handle_button_click))
