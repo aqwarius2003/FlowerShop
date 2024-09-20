@@ -6,7 +6,14 @@ import django
 from django.conf import settings
 from environs import Env
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
-from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Updater
+from telegram.ext import (
+    CallbackContext,
+    CallbackQueryHandler,
+    CommandHandler,
+    Filters,
+    MessageHandler,
+    Updater,
+)
 
 # Настройка переменной окружения для Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "FlowerShop.settings")
@@ -97,8 +104,9 @@ def handle_delivery_order(update: Update, context: CallbackContext):
         f"💰 Стоимость: {order.product.price} руб.\n"
         f"📞 Телефон: {order.user.phone}\n"
         f"🏠 Адрес доставки: {order.delivery_address}\n"
-        f"Текущий статус {order.get_status_display()} \n"
-        f"Выберите новый статус для заказа {order.id}:",
+        f"💬 Комментарий к заказу:{order.delivery_comments}\n"
+        f"➡ Текущий статус: {order.get_status_display()} \n"
+        f"✅ Выберите новый статус для заказа {order.id}:",
         reply_markup=reply_markup,
     )
 
@@ -199,6 +207,7 @@ def handle_order_selection(update: Update, context: CallbackContext):
         f"🏠 Адрес доставки: {order.delivery_address}\n"
         f"Статус: {order.get_status_display()}\n"
         f"📦 Выбранный доставщик: {order.delivery_person}\n"
+        f"Комментарий для доставщика: {order.delivery_comments or 'Комментария нет'}\n"
     )
 
     keyboard = [
@@ -208,6 +217,9 @@ def handle_order_selection(update: Update, context: CallbackContext):
             ),
             InlineKeyboardButton(
                 "Назначить доставщика", callback_data=f"assign_delivery_{order.id}"
+            ),
+            InlineKeyboardButton(
+                "Комментарий доставщику", callback_data=f"comment_delivery_{order.id}"
             ),
         ],
         [InlineKeyboardButton("Назад", callback_data="back_to_manager_orders")],
@@ -282,7 +294,31 @@ def assign_delivery(update: Update, context: CallbackContext):
     )
 
 
-# Обработка выбора нового доставщика
+def add_comment(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+
+    order_id = query.data.split("_")[2]
+    context.user_data["order_id_for_comment"] = order_id
+
+    query.message.reply_text("Введите ваш комментарий для доставщика:")
+
+
+def handle_comment_input(update: Update, context: CallbackContext):
+    order_id = context.user_data.get("order_id_for_comment")  # Получаем ID заказа
+    if not order_id:
+        update.message.reply_text("Не удалось определить заказ для комментария.")
+        return
+
+    comment = update.message.text
+    order = Order.objects.get(id=int(order_id))
+
+    order.delivery_comments = comment
+    order.save()
+
+    update.message.reply_text(f"Комментарий к заказу {order.id} успешно добавлен.")
+
+
 def set_delivery_person(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -488,6 +524,12 @@ if __name__ == "__main__":
     )
     dispatcher.add_handler(
         CallbackQueryHandler(assign_delivery, pattern="^assign_delivery_")
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(add_comment, pattern="^comment_delivery_")
+    )
+    dispatcher.add_handler(
+        MessageHandler(Filters.text & ~Filters.command, handle_comment_input)
     )
     dispatcher.add_handler(
         CallbackQueryHandler(set_delivery_person, pattern="^setDelivery_")
