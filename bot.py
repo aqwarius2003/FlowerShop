@@ -110,6 +110,13 @@ def go_back_to_delivery_orders(update: Update, context: CallbackContext):
     delivery_orders(update, context)
 
 
+def go_back_to_manager_orders(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+
+    manager_orders(update, context)
+
+
 def set_delivery_status(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -126,17 +133,33 @@ def set_delivery_status(update: Update, context: CallbackContext):
 
 
 def manager_orders(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
+    if update.message:
+        user_id = update.message.from_user.id
+    elif update.callback_query:
+        user_id = update.callback_query.from_user.id
+    else:
+        return
+
     logger.info("Открыто меню менеджера")
 
-    if user_id in UserBot.objects.filter(status="manager"):
-        update.message.reply_text("У вас нет прав для просмотра заказов.")
+    if user_id in UserBot.objects.filter(status="manager").values_list(
+        "user_id", flat=True
+    ):
+        if update.message:
+            update.message.reply_text("У вас нет прав для просмотра заказов.")
+        elif update.callback_query:
+            update.callback_query.message.reply_text(
+                "У вас нет прав для просмотра заказов."
+            )
         return
 
     orders = Order.objects.filter(status__in=["created", "inWork", "inDelivery"])
 
     if not orders.exists():
-        update.message.reply_text("Заказов пока нет.")
+        if update.message:
+            update.message.reply_text("Заказов пока нет.")
+        elif update.callback_query:
+            update.callback_query.message.reply_text("Заказов пока нет.")
         return
 
     keyboard = []
@@ -151,7 +174,12 @@ def manager_orders(update: Update, context: CallbackContext):
         )
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Список всех заказов:", reply_markup=reply_markup)
+    if update.message:
+        update.message.reply_text("Список всех заказов:", reply_markup=reply_markup)
+    elif update.callback_query:
+        update.callback_query.message.reply_text(
+            "Список всех заказов:", reply_markup=reply_markup
+        )
 
 
 def handle_order_selection(update: Update, context: CallbackContext):
@@ -181,7 +209,8 @@ def handle_order_selection(update: Update, context: CallbackContext):
             InlineKeyboardButton(
                 "Назначить доставщика", callback_data=f"assign_delivery_{order.id}"
             ),
-        ]
+        ],
+        [InlineKeyboardButton("Назад", callback_data="back_to_manager_orders")],
     ]
     replay_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_text(order_details, reply_markup=replay_markup)
@@ -199,10 +228,13 @@ def change_order_status(update: Update, context: CallbackContext):
         [
             InlineKeyboardButton(
                 status[1], callback_data=f"setStatus_{order.id}_{status[0]}"
-            )
+            ),
         ]
         for status in status_choices
     ]
+    keyboard.append(
+        [InlineKeyboardButton("Назад", callback_data="back_to_manager_orders")]
+    )
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
         f"Выберите новый статус для заказа {order.id}:", reply_markup=reply_markup
@@ -241,7 +273,9 @@ def assign_delivery(update: Update, context: CallbackContext):
         ]
         for person in delivery_people
     ]
-
+    keyboard.append(
+        [InlineKeyboardButton("Назад", callback_data="back_to_manager_orders")]
+    )
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(
         f"Выберите нового доставщика для заказа {order.id}:", reply_markup=reply_markup
@@ -435,6 +469,11 @@ if __name__ == "__main__":
     dispatcher.add_handler(CommandHandler("delivery", delivery_orders))
     dispatcher.add_handler(
         CallbackQueryHandler(handle_order_selection, pattern="^order_admin_")
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(
+            go_back_to_manager_orders, pattern="^back_to_manager_orders$"
+        )
     )
     dispatcher.add_handler(
         CallbackQueryHandler(
