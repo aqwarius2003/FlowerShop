@@ -179,7 +179,10 @@ class Order(models.Model):
         verbose_name="Доставщик",
     )
     delivery_comments = models.TextField(
-        null=True, blank=True, verbose_name="Комментарии к доставке"
+        null=True,
+        blank=True,
+        verbose_name="Комментарии к доставке",
+        default="Стандартный заказ",
     )
 
     def __str__(self):

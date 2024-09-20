@@ -75,6 +75,7 @@ def delivery_orders(update: Update, context: CallbackContext):
 
 
 def handle_delivery_order(update: Update, context: CallbackContext):
+    logger.info("Просмотр заказа")
     query = update.callback_query
     query.answer()
 
@@ -149,10 +150,8 @@ def manager_orders(update: Update, context: CallbackContext):
         return
 
     logger.info("Открыто меню менеджера")
-
-    if user_id in UserBot.objects.filter(status="manager").values_list(
-        "user_id", flat=True
-    ):
+    manager_person = UserBot.objects.filter(user_id=user_id, status="manager").first()
+    if not manager_person:
         if update.message:
             update.message.reply_text("У вас нет прав для просмотра заказов.")
         elif update.callback_query:
@@ -192,6 +191,7 @@ def manager_orders(update: Update, context: CallbackContext):
 
 def handle_order_selection(update: Update, context: CallbackContext):
     query = update.callback_query
+    logger.info(f"Callback data received: {query.data}")
     query.answer()
 
     order_id = query.data.split("_")[2]
