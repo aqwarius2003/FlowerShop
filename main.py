@@ -9,6 +9,7 @@ import django
 import os
 import logging
 from django.conf import settings
+
 # Настройка переменной окружения для Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'FlowerShop.settings')
 django.setup()  # Инициализация Django
@@ -21,8 +22,8 @@ logger = logging.getLogger(__name__)
 # Определим состояния
 EVENT, BUDGET, PRODUCT_SELECTION, INPUT_DATA, CONFIRMATION = range(5)
 
-
 users = {}
+
 
 # Основное меню с выбором события
 def start(update: Update, context: CallbackContext) -> int:
@@ -33,8 +34,8 @@ def start(update: Update, context: CallbackContext) -> int:
     return EVENT
 
 
-def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None, reply_markup: InlineKeyboardMarkup = None) -> None:
-
+def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None,
+                       reply_markup: InlineKeyboardMarkup = None) -> None:
     if update.callback_query:
         query = update.callback_query
         query.answer()
@@ -52,7 +53,8 @@ def send_photo_message(update: Update, context: CallbackContext, photo_path: str
             else:
                 # If this is the first message with the product, send the photo
                 with open(photo_path, 'rb') as photo:
-                    query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup, parse_mode="Markdown")
+                    query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+                                              parse_mode="Markdown")
     else:
         # Handle message
         if update.message.photo:
@@ -62,7 +64,8 @@ def send_photo_message(update: Update, context: CallbackContext, photo_path: str
         else:
             # If this is the first message with the product, send the photo
             with open(photo_path, 'rb') as photo:
-                update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup, parse_mode="Markdown")
+                update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+                                           parse_mode="Markdown")
 
 
 def event_chose(update: Update, context: CallbackContext) -> None:
@@ -81,6 +84,7 @@ def event_chose(update: Update, context: CallbackContext) -> None:
     context.user_data['event'] = None
     return EVENT
 
+
 def budget_chose(update: Update, context: CallbackContext) -> int:
     photo_path = 'D:\\Python_projects\\FlowerShop\\static\\products\\budget.jpg'
 
@@ -97,6 +101,7 @@ def budget_chose(update: Update, context: CallbackContext) -> int:
     reply_markup = InlineKeyboardMarkup(keyboard)
     send_photo_message(update, context, photo_path, caption, reply_markup)
     return BUDGET
+
 
 def generate_list_products(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -137,7 +142,7 @@ def generate_list_products(update: Update, context: CallbackContext):
 
     logger.info(f"перед запросом обработка фильтров {min_price=}, {max_price=}, context.user_data['event']")
 
-        # Выборка товаров на основе выбранных событий и бюджета
+    # Выборка товаров на основе выбранных событий и бюджета
     filter_conditions = {
         'price__gte': min_price,
         'categories__name': context.user_data['event']
@@ -154,6 +159,7 @@ def generate_list_products(update: Update, context: CallbackContext):
     context.user_data['current_product'] = 0  # Инициализируем current_product
     show_product(update, context)
     return
+
 
 def show_product(update: Update, context: CallbackContext):
     user_data = context.user_data
@@ -172,7 +178,6 @@ def show_product(update: Update, context: CallbackContext):
 
     product = products[current_index]
     context.user_data['selected_product'] = product
-
 
     # Получаем путь к изображению
     photo_path = os.path.join(settings.MEDIA_ROOT, product.image.name)
@@ -207,10 +212,10 @@ def prev_product(update: Update, context: CallbackContext):
 
 
 def submit_order(update: Update, context: CallbackContext) -> int:
-
     query = update.callback_query
     query.answer()
-    logger.info(f"full_name: {context.user_data['name']}, phone {context.user_data['phone']}, address: {context.user_data['address']}")
+    logger.info(
+        f"full_name: {context.user_data['name']}, phone {context.user_data['phone']}, address: {context.user_data['address']}")
 
     # Создание пользователя или получение существующего
     user, created = UserBot.objects.get_or_create(user_id=update.effective_user.id,
@@ -244,8 +249,10 @@ def cancel(update: Update, context: CallbackContext) -> int:
     logger.info('Процесс заказа отменен. Напишите /start, чтобы начать заново.')
     return ConversationHandler.END
 
+
 def error_handler(update: object, context: CallbackContext) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
+
 
 def handle_callback(update: Update, context: CallbackContext) -> int:
     """
@@ -262,7 +269,9 @@ def handle_callback(update: Update, context: CallbackContext) -> int:
         event = query.data.split('_')[2]
         context.user_data['event'] = event
 
-        logger.info(f"if callback_data.startswith(event_) пользователь {update.effective_user.id} выбрал event: {context.user_data['event']}")
+        logger.info(
+            f"if callback_data.startswith(event_) пользователь {update.effective_user.id} "
+            f"выбрал event: {context.user_data['event']}")
         # Переход к выбору бюджета
         budget_chose(update, context)
         return BUDGET
@@ -304,7 +313,7 @@ def handle_button_click(update: Update, context: CallbackContext):
 
     elif query.data.startswith('product_'):
         product_id = int(query.data.split('_')[1])
-        context.user_data['product_to_order']= Product.objects.get(id=product_id)
+        context.user_data['product_to_order'] = Product.objects.get(id=product_id)
 
         logger.info(f"выбран товар {context.user_data['product_to_order']}")
         show_order_form(update, context)
@@ -345,7 +354,6 @@ def show_order_form(update: Update, context: CallbackContext, error_message=None
     send_photo_message(update, context, caption=caption, photo_path=photo_path, reply_markup=reply_markup)
 
 
-
 # Обработчики ввода данных
 def handle_button_click_menu_order(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -377,7 +385,8 @@ def handle_button_click_menu_order(update: Update, context: CallbackContext):
         return ConversationHandler.END
     elif query.data == 'submit_order':
         user_data = context.user_data
-        if all([user_data.get('name'), user_data.get('phone'), user_data.get('address'), user_data.get('delivery_date_time')]):
+        if all([user_data.get('name'), user_data.get('phone'), user_data.get('address'),
+                user_data.get('delivery_date_time')]):
             submit_order(update, context)
             caption = "Ваш заказ отправлен в обработку!\nМенеджер свяжется с вами в ближайшее время."
             photo_path = 'D:\\Python_projects\\FlowerShop\\static\\products\\call manager.jpg'
@@ -385,10 +394,12 @@ def handle_button_click_menu_order(update: Update, context: CallbackContext):
 
             return ConversationHandler.END
         else:
-            show_order_form(update, context, error_message="‼️ Пожалуйста, заполните все необходимые поля перед отправкой заказа ‼️")
+            show_order_form(update, context,
+                            error_message="‼️ Пожалуйста, заполните все необходимые поля перед отправкой заказа ‼️")
             return INPUT_DATA
 
     return INPUT_DATA
+
 
 # Функция обработки ввода данных
 def input_data(update: Update, context: CallbackContext):
@@ -407,7 +418,7 @@ def input_data(update: Update, context: CallbackContext):
     elif query_data == 'input_address':
         context.user_data['address'] = text
     elif query_data == 'delivery_time':
-    # Проверка формата даты и времени
+        # Проверка формата даты и времени
         date_format = '%d.%m.%Y %H:%M'
         try:
             # Пробуем преобразовать текст в дату
