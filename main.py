@@ -16,6 +16,22 @@ django.setup()  # Инициализация Django
 
 from tg_bot.models import Category, Product, PriceRange, UserBot, Order
 
+from bot_admin import (
+    add_comment,
+    assign_delivery,
+    change_order_status,
+    delivery_orders,
+    go_back_to_delivery_orders,
+    go_back_to_manager_orders,
+    handle_comment_input,
+    handle_delivery_order,
+    handle_order_selection,
+    manager_orders,
+    set_delivery_person,
+    set_delivery_status,
+    set_order_status,
+)
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -34,6 +50,39 @@ def start(update: Update, context: CallbackContext) -> int:
     return EVENT
 
 
+# def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None,
+#                        reply_markup: InlineKeyboardMarkup = None) -> None:
+    # if update.callback_query:
+    #     query = update.callback_query
+    #     query.answer()
+    #
+    #     if photo_path is None:
+    #         logger.info(f"путь фото для сообщения, если патч пустой {context.user_data['photo_path']}")
+    #         photo_path = context.user_data['photo_path']
+    #
+    #     # Check if the message content or reply markup is different
+    #     if query.message.caption != caption or query.message.reply_markup != reply_markup:
+    #         if query.message.photo:
+    #             with open(photo_path, 'rb') as photo:
+    #                 media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
+    #                 query.message.edit_media(media=media, reply_markup=reply_markup)
+    #         else:
+    #             # If this is the first message with the product, send the photo
+    #             with open(photo_path, 'rb') as photo:
+    #                 query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+    #                                           parse_mode="Markdown")
+    # else:
+    #     # Handle message
+    #     if update.message.photo:
+    #         with open(photo_path, 'rb') as photo:
+    #             media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
+    #             update.message.edit_media(media=media, reply_markup=reply_markup)
+    #     else:
+    #         # If this is the first message with the product, send the photo
+    #         with open(photo_path, 'rb') as photo:
+    #             update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+    #                                        parse_mode="Markdown")
+
 def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None,
                        reply_markup: InlineKeyboardMarkup = None) -> None:
     if update.callback_query:
@@ -44,33 +93,40 @@ def send_photo_message(update: Update, context: CallbackContext, photo_path: str
             logger.info(f"путь фото для сообщения, если патч пустой {context.user_data['photo_path']}")
             photo_path = context.user_data['photo_path']
 
-        # Check if the message content or reply markup is different
+        # Проверка, изменились ли подпись или разметка
         if query.message.caption != caption or query.message.reply_markup != reply_markup:
             if query.message.photo:
+                # Если сообщение уже содержит фото, редактируем его
                 with open(photo_path, 'rb') as photo:
                     media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
                     query.message.edit_media(media=media, reply_markup=reply_markup)
             else:
-                # If this is the first message with the product, send the photo
+                # Если это первое сообщение с продуктом, отправляем фото
                 with open(photo_path, 'rb') as photo:
                     query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
                                               parse_mode="Markdown")
     else:
-        # Handle message
+        # Обработка обычного сообщения
         if update.message.photo:
+            # Если сообщение содержит фото, редактируем его
             with open(photo_path, 'rb') as photo:
                 media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
                 update.message.edit_media(media=media, reply_markup=reply_markup)
         else:
-            # If this is the first message with the product, send the photo
+            # Если это первое сообщение с продуктом, отправляем фото
             with open(photo_path, 'rb') as photo:
                 update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
                                            parse_mode="Markdown")
 
+    # Дополнительная логика для отслеживания состояния сообщений
+    # Например, можно сохранить ID последнего сообщения с фото в user_data
+    context.user_data[
+        'last_photo_message_id'] = query.message.message_id if update.callback_query else update.message.message_id
+    logger.info(f"сообщение с фото :   {context.user_data['last_photo_message_id']}=")
 
 def event_chose(update: Update, context: CallbackContext) -> None:
     logger.info('зашел в меню евент')
-    photo_path = 'D:\\Python_projects\\FlowerShop\\static\\products\\event.jpg'
+    photo_path = os.path.join('static', 'products', 'to', 'event.jpg')
 
     # Получение списка событий из БД
     events = Category.objects.all()
@@ -86,7 +142,7 @@ def event_chose(update: Update, context: CallbackContext) -> None:
 
 
 def budget_chose(update: Update, context: CallbackContext) -> int:
-    photo_path = 'D:\\Python_projects\\FlowerShop\\static\\products\\budget.jpg'
+    photo_path  = os.path.join('static', 'products', 'to', 'budget.jpg')
 
     # Получение списка бюджетов из БД
     budgets = PriceRange.objects.all()
@@ -389,7 +445,7 @@ def handle_button_click_menu_order(update: Update, context: CallbackContext):
                 user_data.get('delivery_date_time')]):
             submit_order(update, context)
             caption = "Ваш заказ отправлен в обработку!\nМенеджер свяжется с вами в ближайшее время."
-            photo_path = 'D:\\Python_projects\\FlowerShop\\static\\products\\call manager.jpg'
+            photo_path = os.path.join('static', 'products', 'to', 'call_manager.jpg')
             send_photo_message(update, context, photo_path=photo_path, caption=caption)
 
             return ConversationHandler.END
@@ -464,6 +520,45 @@ def main():
     )
 
     dp.add_handler(conv_handler)
+    dp.add_handler(CommandHandler("manager", manager_orders))
+    dp.add_handler(CommandHandler("delivery", delivery_orders))
+    dp.add_handler(
+        CallbackQueryHandler(handle_order_selection, pattern="^order_admin_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(
+            go_back_to_manager_orders, pattern="^back_to_manager_orders$"
+        )
+    )
+    dp.add_handler(
+        CallbackQueryHandler(
+            go_back_to_delivery_orders, pattern="^back_to_delivery_orders$"
+        )
+    )
+    dp.add_handler(
+        CallbackQueryHandler(change_order_status, pattern="^change_status_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(set_order_status, pattern="^setStatus_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(assign_delivery, pattern="^assign_delivery_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(add_comment, pattern="^comment_delivery_")
+    )
+    dp.add_handler(
+        MessageHandler(Filters.text & ~Filters.command, handle_comment_input)
+    )
+    dp.add_handler(
+        CallbackQueryHandler(set_delivery_person, pattern="^setDelivery_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(handle_delivery_order, pattern="^order_delivery_")
+    )
+    dp.add_handler(
+        CallbackQueryHandler(set_delivery_status, pattern="^setDeliveryStatus_")
+    )
 
     # Запуск бота
     updater.start_polling()

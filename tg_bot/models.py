@@ -112,8 +112,8 @@ class Order(models.Model):
     creation_date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время создания заказа')
     STATUS_CHOICES = [
         ('created', 'Создан'),
-        ('in_work', 'В работе'),
-        ('in_delivery', 'В доставке'),
+        ('inWork', 'В работе'),
+        ('inDelivery', 'В доставке'),
         ('delivered', 'Выдан клиенту'),
         ('cancelled', 'Отменен'),
     ]
