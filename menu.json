@@ -1,9 +1,83 @@
 {
-    "event_menu": {
-        "reply_text": "К какому событию готовимся? Выберите один из вариантов, либо укажите свой.",
-        "def": "create_event_menu",
-        "buttons": [
-            {"text": "Другой повод", "callback": "other_event"}
-        ]
-    }
+  "event_menu": {
+    "reply_text": "К какому событию готовимся? Выберите один из вариантов, либо укажите свой.",
+    "def": "create_event_menu",
+    "dynamic_buttons": true,
+    "get_buttons": "get_event_categories"
+  },
+  "get_event_categories": {
+    "reply_text": "",
+    "def": "get_event_categories_from_db",
+    "callback": "create_event_buttons"
+  },
+  "create_event_buttons": {
+    "reply_text": "",
+    "def": "create_event_buttons",
+    "buttons": []
+  },
+  "budget_menu": {
+    "reply_text": "На какую сумму рассчитываете?",
+    "def": "create_budget_menu",
+    "dynamic_buttons": true,
+    "get_buttons": "get_price_ranges"
+  },
+  "get_price_ranges": {
+    "reply_text": "",
+    "def": "get_price_ranges_from_db",
+    "callback": "create_budget_buttons"
+  },
+  "create_budget_buttons": {
+    "reply_text": "",
+    "def": "create_budget_buttons",
+    "buttons": []
+  },
+  "order_bouquet": {
+    "reply_text": "Пожалуйста, заполните все поля.",
+    "def": "order_bouquet_input",
+    "input_fields": [
+      {"label": "ФИО", "type": "text", "callback": "input_name"},
+      {"label": "Телефон", "type": "text", "callback": "input_phone"},
+      {"label": "Адрес доставки", "type": "text", "callback": "input_address"},
+      {"label": "Дата и время доставки", "type": "text", "callback": "input_delivery"},
+      {"label": "Комментарии к заказу", "type": "text", "callback": "input_comments"}
+    ]
+  },
+  "input_name": {
+    "reply_text": "Пожалуйста, укажите телефон.",
+    "def": "input_phone",
+    "input_type": "text"
+  },
+  "input_phone": {
+    "reply_text": "Пожалуйста, укажите адрес доставки.",
+    "def": "input_address",
+    "input_type": "text"
+  },
+  "input_address": {
+    "reply_text": "Пожалуйста, укажите дату и время доставки.",
+    "def": "input_delivery",
+    "input_type": "text"
+  },
+  "input_delivery": {
+    "reply_text": "Пожалуйста, укажите комментарии к заказу.",
+    "def": "input_comments",
+    "input_type": "text"
+  },
+  "input_comments": {
+    "reply_text": "Ваш заказ:\n{user.Product.name}, {user.Product.description}\nАдрес доставки: {user.address}\nВремя доставки: {user.delivery_time}\nКомментарии: {user.comments}\nВсе верно?",
+    "def": "order_confirmation",
+    "buttons": [
+      {"text": "Да", "callback": "confirm_order"},
+      {"text": "Нет", "callback": "cancel_order"}
+    ]
+  },
+  "confirm_order": {
+    "reply_text": "В ближайшие 20 минут менеджер свяжется для подтверждения заказа.",
+    "def": "order_confirmed",
+    "send_to_courier": true
+  },
+  "cancel_order": {
+    "reply_text": "Заказ отменен. Возвращаемся в меню заказа.",
+    "def": "order_canceled",
+    "callback": "order_bouquet"
+  }
 }

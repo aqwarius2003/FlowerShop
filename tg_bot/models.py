@@ -108,7 +108,7 @@ class Order(models.Model):
                              related_name='user_orders', verbose_name='Пользователь')
     comment = models.TextField(max_length=300, verbose_name='Комментарий к заказу', null=True, blank=True,)
     delivery_address = models.CharField(max_length=200, verbose_name='Адрес доставки')
-    desired_delivery_date = models.DateTimeField(verbose_name='Дата и время желаемой доставки')
+    desired_delivery_date = models.DateTimeField(verbose_name='Когда доставить')
     creation_date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время создания заказа')
     STATUS_CHOICES = [
         ('created', 'Создан'),
