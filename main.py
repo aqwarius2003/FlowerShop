@@ -1,10 +1,12 @@
 # main.py
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, \
+    TelegramError
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler, \
     CallbackContext
 from datetime import datetime
 
 import telegram
+import re
 import django
 import os
 import logging
@@ -32,6 +34,8 @@ from bot_admin import (
     set_order_status,
 )
 
+
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -50,79 +54,63 @@ def start(update: Update, context: CallbackContext) -> int:
     return EVENT
 
 
-# def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None,
-#                        reply_markup: InlineKeyboardMarkup = None) -> None:
-    # if update.callback_query:
-    #     query = update.callback_query
-    #     query.answer()
-    #
-    #     if photo_path is None:
-    #         logger.info(f"путь фото для сообщения, если патч пустой {context.user_data['photo_path']}")
-    #         photo_path = context.user_data['photo_path']
-    #
-    #     # Check if the message content or reply markup is different
-    #     if query.message.caption != caption or query.message.reply_markup != reply_markup:
-    #         if query.message.photo:
-    #             with open(photo_path, 'rb') as photo:
-    #                 media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
-    #                 query.message.edit_media(media=media, reply_markup=reply_markup)
-    #         else:
-    #             # If this is the first message with the product, send the photo
-    #             with open(photo_path, 'rb') as photo:
-    #                 query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
-    #                                           parse_mode="Markdown")
-    # else:
-    #     # Handle message
-    #     if update.message.photo:
-    #         with open(photo_path, 'rb') as photo:
-    #             media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
-    #             update.message.edit_media(media=media, reply_markup=reply_markup)
-    #     else:
-    #         # If this is the first message with the product, send the photo
-    #         with open(photo_path, 'rb') as photo:
-    #             update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
-    #                                        parse_mode="Markdown")
-
 def send_photo_message(update: Update, context: CallbackContext, photo_path: str = None, caption: str = None,
                        reply_markup: InlineKeyboardMarkup = None) -> None:
+    # Проверка наличия callback_query
     if update.callback_query:
         query = update.callback_query
         query.answer()
 
+        # Загрузка пути к фото из user_data, если не передан
         if photo_path is None:
             logger.info(f"путь фото для сообщения, если патч пустой {context.user_data['photo_path']}")
             photo_path = context.user_data['photo_path']
 
         # Проверка, изменились ли подпись или разметка
         if query.message.caption != caption or query.message.reply_markup != reply_markup:
-            if query.message.photo:
-                # Если сообщение уже содержит фото, редактируем его
-                with open(photo_path, 'rb') as photo:
-                    media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
-                    query.message.edit_media(media=media, reply_markup=reply_markup)
+            # Редактирование существующего сообщения с фото
+            if 'last_photo_message_id' in context.user_data:
+                try:
+                    context.bot.edit_message_media(
+                        chat_id=query.message.chat_id,
+                        message_id=context.user_data['last_photo_message_id'],
+                        media=InputMediaPhoto(open(photo_path, 'rb'), caption=caption, parse_mode="Markdown"),
+                        reply_markup=reply_markup
+                    )
+                except TelegramError as e:
+                    logger.error(f"Ошибка редактирования сообщения: {e}")
             else:
                 # Если это первое сообщение с продуктом, отправляем фото
                 with open(photo_path, 'rb') as photo:
-                    query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
-                                              parse_mode="Markdown")
+                    message = query.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+                                                        parse_mode="Markdown")
+                    context.user_data['last_photo_message_id'] = message.message_id
+        else:
+            # Если ничего не изменилось, просто обновляем ID сообщения
+            context.user_data['last_photo_message_id'] = query.message.message_id
     else:
         # Обработка обычного сообщения
-        if update.message.photo:
-            # Если сообщение содержит фото, редактируем его
-            with open(photo_path, 'rb') as photo:
-                media = InputMediaPhoto(photo, caption=caption, parse_mode="Markdown")
-                update.message.edit_media(media=media, reply_markup=reply_markup)
+        if 'last_photo_message_id' in context.user_data:
+            try:
+                # Редактирование существующего сообщения с фото
+                context.bot.edit_message_media(
+                    chat_id=update.message.chat_id,
+                    message_id=context.user_data['last_photo_message_id'],
+                    media=InputMediaPhoto(open(photo_path, 'rb'), caption=caption, parse_mode="Markdown"),
+                    reply_markup=reply_markup
+                )
+            except TelegramError as e:
+                logger.error(f"Ошибка редактирования сообщения: {e}")
         else:
             # Если это первое сообщение с продуктом, отправляем фото
             with open(photo_path, 'rb') as photo:
-                update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
-                                           parse_mode="Markdown")
+                message = update.message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup,
+                                                     parse_mode="Markdown")
+                context.user_data['last_photo_message_id'] = message.message_id
 
     # Дополнительная логика для отслеживания состояния сообщений
-    # Например, можно сохранить ID последнего сообщения с фото в user_data
-    context.user_data[
-        'last_photo_message_id'] = query.message.message_id if update.callback_query else update.message.message_id
-    logger.info(f"сообщение с фото :   {context.user_data['last_photo_message_id']}=")
+    logger.info(f"сообщение с фото : {context.user_data['last_photo_message_id']}")
+
 
 def event_chose(update: Update, context: CallbackContext) -> None:
     logger.info('зашел в меню евент')
@@ -142,7 +130,7 @@ def event_chose(update: Update, context: CallbackContext) -> None:
 
 
 def budget_chose(update: Update, context: CallbackContext) -> int:
-    photo_path  = os.path.join('static', 'products', 'to', 'budget.jpg')
+    photo_path = os.path.join('static', 'products', 'to', 'budget.jpg')
 
     # Получение списка бюджетов из БД
     budgets = PriceRange.objects.all()
@@ -208,13 +196,20 @@ def generate_list_products(update: Update, context: CallbackContext):
         filter_conditions['price__lte'] = max_price
 
     products = Product.objects.filter(**filter_conditions)
-
-    context.user_data['products'] = products
-
-    print(product for product in products)
-    context.user_data['current_product'] = 0  # Инициализируем current_product
-    show_product(update, context)
-    return
+    if products.exists():
+        context.user_data['products'] = products
+        print(product for product in products)
+        context.user_data['current_product'] = 0  # Инициализируем current_product
+        show_product(update, context)
+    else:
+        logger.info("В этой категории нет товаров. сработала (if not products) 234 строка")
+        if 'budget' in context.user_data:
+            del context.user_data['budget']
+        caption = 'Ничего не можем предложить.\nВыберите другой повод или бюджет'
+        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data="back_to_budget")]])
+        photo_path = os.path.join('static', 'products', 'to', 'error.jpg')
+        send_photo_message(update, context, photo_path=photo_path, caption=caption, reply_markup=reply_markup)
+        return EVENT
 
 
 def show_product(update: Update, context: CallbackContext):
@@ -223,14 +218,10 @@ def show_product(update: Update, context: CallbackContext):
     products = context.user_data.get('products', [])
     current_index = user_data.get('current_product', 0)
 
-    # Проверка, что список продуктов не пуст и индекс находится в пределах длины списка
-    if not products:
-        logger.info("В этой категории нет товаров. сработала (if not products)")
-        return
-
+    # Проверка, что список продуктов не пуст и индекс находится в пределах длины списк
     if current_index >= len(products):
         logger.info("Ошибка: неправильный индекс товара - if current_index >= len(products)")
-        return
+        return ConversationHandler.END
 
     product = products[current_index]
     context.user_data['selected_product'] = product
@@ -241,7 +232,8 @@ def show_product(update: Update, context: CallbackContext):
     # Проверка на существование изображения
     if not os.path.exists(photo_path):
         logger.error(f"Image not found: {photo_path}")
-        return
+        photo_path = os.path.join('static', 'products', 'to', 'error.jpg')
+        # return
 
     # Формируем клавиатуру для продукта
     keyboard = [
@@ -271,7 +263,8 @@ def submit_order(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
     logger.info(
-        f"full_name: {context.user_data['name']}, phone {context.user_data['phone']}, address: {context.user_data['address']}")
+        f"full_name: {context.user_data['name']}, phone {context.user_data['phone']}, "
+        f"address: {context.user_data['address']}")
 
     # Создание пользователя или получение существующего
     user, created = UserBot.objects.get_or_create(user_id=update.effective_user.id,
@@ -345,8 +338,8 @@ def handle_callback(update: Update, context: CallbackContext) -> int:
         # Логика выбора товара
         return PRODUCT_SELECTION
 
-
     elif callback_data == "back_to_event":
+        logger.info("Кнопка 'Назад' нажата. Переход в меню событий.")
         event_chose(update, context)
         return EVENT
 
@@ -374,6 +367,9 @@ def handle_button_click(update: Update, context: CallbackContext):
         logger.info(f"выбран товар {context.user_data['product_to_order']}")
         show_order_form(update, context)
         return INPUT_DATA
+
+
+
 
 
 def show_order_form(update: Update, context: CallbackContext, error_message=None):
@@ -473,9 +469,34 @@ def input_data(update: Update, context: CallbackContext):
         context.user_data['phone'] = text
     elif query_data == 'input_address':
         context.user_data['address'] = text
+    # elif query_data == 'delivery_time':
+    #     # Проверка формата даты и времени
+    #     date_format = '%d.%m.%Y %H:%M'
+    #     try:
+    #         # Пробуем преобразовать текст в дату
+    #         delivery_time = datetime.strptime(text, date_format)
+    #         context.user_data['delivery_date_time'] = text
+    #         context.user_data['delivery_time'] = delivery_time
+    #         logger.info('Дата верная: %s', delivery_time)
+    #         print(f'Время доставки: {context.user_data["delivery_time"]}')
+    #     except ValueError:
+    #         # Если формат неверный, отправить ошибку
+    #         error_message = "‼️ Пожалуйста, введите дату и время в формате dd.mm.yyyy HH:MM ‼️"
+    #         show_order_form(update, context, error_message=error_message)
+    #         return INPUT_DATA
+
     elif query_data == 'delivery_time':
+# Заменяем запятые на точки и двоеточия на точки
+        text = text.replace(',', '.').replace(':', '.')
+
+        # Если год не указан, добавляем 2024
+        if '2024' not in text:
+            # Проверяем, есть ли дата в формате 'дд.мм.гггг'
+            if re.match(r'^\d{1,2}\.\d{1,2}\.\d{1,2} \d{1,2}\.\d{1,2}$', text):
+                text = text + ' 2024'  # Добавляем год 2024
+
         # Проверка формата даты и времени
-        date_format = '%d.%m.%Y %H:%M'
+        date_format = '%d.%m.%Y %H.%M'
         try:
             # Пробуем преобразовать текст в дату
             delivery_time = datetime.strptime(text, date_format)
@@ -484,9 +505,11 @@ def input_data(update: Update, context: CallbackContext):
             logger.info('Дата верная: %s', delivery_time)
             print(f'Время доставки: {context.user_data["delivery_time"]}')
         except ValueError:
-            # Если формат неверный, отправить ошибку
+            logger.error('Неверный формат даты: %s', text)
+
             error_message = "‼️ Пожалуйста, введите дату и время в формате dd.mm.yyyy HH:MM ‼️"
             show_order_form(update, context, error_message=error_message)
+            context.bot.delete_message(chat_id=chat_id, message_id=update.message.message_id)
             return INPUT_DATA
 
     elif query_data == 'input_comment':
@@ -522,9 +545,7 @@ def main():
     dp.add_handler(conv_handler)
     dp.add_handler(CommandHandler("manager", manager_orders))
     dp.add_handler(CommandHandler("delivery", delivery_orders))
-    dp.add_handler(
-        CallbackQueryHandler(handle_order_selection, pattern="^order_admin_")
-    )
+    dp.add_handler(CallbackQueryHandler(handle_order_selection, pattern="^order_admin_"))
     dp.add_handler(
         CallbackQueryHandler(
             go_back_to_manager_orders, pattern="^back_to_manager_orders$"
@@ -564,9 +585,6 @@ def main():
     updater.start_polling()
     updater.idle()
 
-    # dp.add_handler(conv_handler)
-    # from product_selection import register_product_handlers
-    # register_product_handlers(dp)
 
     # Добавление обработчика ошибок
     def error_handler(update: object, context: CallbackContext) -> None:
