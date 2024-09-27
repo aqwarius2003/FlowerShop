@@ -195,7 +195,6 @@ def handle_order_selection(update: Update, context: CallbackContext):
     order_id = query.data.split("_")[2]
     order = Order.objects.get(id=int(order_id))
 
-
     order_details = (
         f"👤 Имя: {order.user}\n"
         f"📅 Дата и время желаемой доставки: {order.desired_delivery_date}\n"
@@ -212,7 +211,7 @@ def handle_order_selection(update: Update, context: CallbackContext):
     keyboard = [
         [InlineKeyboardButton("Изменить статус заказа", callback_data=f"change_status_{order.id}")],
         [InlineKeyboardButton("Назначить доставщика", callback_data=f"assign_delivery_{order.id}")],
-        [InlineKeyboardButton("Комментарий доставщику", callback_data=f"comment_delivery_{order.id}")],
+       # [InlineKeyboardButton("Комментарий доставщику", callback_data=f"comment_delivery_{order.id}")],
         [InlineKeyboardButton("Назад", callback_data="back_to_manager_orders")],
     ]
 
@@ -286,29 +285,29 @@ def assign_delivery(update: Update, context: CallbackContext):
     )
 
 
-def add_comment(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
+#def add_comment(update: Update, context: CallbackContext):
+#    query = update.callback_query
+#    query.answer()
 
-    order_id = query.data.split("_")[2]
-    context.user_data["order_id_for_comment"] = order_id
+#    order_id = query.data.split("_")[2]
+#    context.user_data["order_id_for_comment"] = order_id
 
-    query.message.reply_text("Введите ваш комментарий для доставщика:")
+#    query.message.reply_text("Введите ваш комментарий для доставщика:")
 
 
-def handle_comment_input(update: Update, context: CallbackContext):
-    order_id = context.user_data.get("order_id_for_comment")  # Получаем ID заказа
-    if not order_id:
-        update.message.reply_text("Не удалось определить заказ для комментария.")
-        return
+#def handle_comment_input(update: Update, context: CallbackContext):
+#    order_id = context.user_data.get("order_id_for_comment")  # Получаем ID заказа
+#    if not order_id:
+#        update.message.reply_text("Не удалось определить заказ для комментария.")
+#        return
 
-    comment = update.message.text
-    order = Order.objects.get(id=int(order_id))
+#    comment = update.message.text
+#    order = Order.objects.get(id=int(order_id))
+#
+#    order.delivery_comments = comment
+#    order.save()
 
-    order.delivery_comments = comment
-    order.save()
-
-    update.message.reply_text(f"Комментарий к заказу {order.id} успешно добавлен.")
+#    update.message.reply_text(f"Комментарий к заказу {order.id} успешно добавлен.")
 
 
 def set_delivery_person(update: Update, context: CallbackContext):
@@ -345,7 +344,7 @@ def get_handlers():
     change_order_status_handler = CallbackQueryHandler(change_order_status, pattern=r'^change_status_\d+$')
     set_order_status_handler = CallbackQueryHandler(set_order_status, pattern=r'^setStatus_\d+_\w+$')
     assign_delivery_handler = CallbackQueryHandler(assign_delivery, pattern=r'^assign_delivery_\d+$')
-    # add_comment_handler = CallbackQueryHandler(add_comment, pattern=r'^comment_delivery_\d+$')
+ #   add_comment_handler = CallbackQueryHandler(add_comment, pattern=r'^comment_delivery_\d+$')
     set_delivery_person_handler = CallbackQueryHandler(set_delivery_person, pattern=r'^setDelivery_\d+_\d+$')
 
     # Message handler for comments
@@ -361,7 +360,7 @@ def get_handlers():
         change_order_status_handler,
         set_order_status_handler,
         assign_delivery_handler,
-        # add_comment_handler,
+#        add_comment_handler,
         set_delivery_person_handler,
-        handle_comment_input_handler,
+#       handle_comment_input_handler,
     ]

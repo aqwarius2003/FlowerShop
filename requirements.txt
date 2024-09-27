@@ -3,3 +3,6 @@ pillow==10.4.0
 Django==5.1.1
 django-phone-field==1.8.1
 environs==5.2.1
+requests==2.31.0
+python-dotenv==1.0.1
+python-dotenv==1.0.1

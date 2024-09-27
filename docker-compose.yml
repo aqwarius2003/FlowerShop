@@ -1,0 +1,19 @@
+version: '3'
+services:
+  web:
+    build: .
+    command: /app/start.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    restart: always
+
+  bot:
+    build: .
+    command: /app/start.sh
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: always

@@ -4,6 +4,7 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler, \
     CallbackContext
 from datetime import datetime
+from bot_admin import get_handlers
 
 import telegram
 import re
@@ -19,13 +20,13 @@ django.setup()  # Инициализация Django
 from tg_bot.models import Category, Product, PriceRange, UserBot, Order
 
 from bot_admin import (
-    add_comment,
+#    add_comment,
     assign_delivery,
     change_order_status,
     delivery_orders,
     go_back_to_delivery_orders,
     go_back_to_manager_orders,
-    handle_comment_input,
+#    handle_comment_input,
     handle_delivery_order,
     handle_order_selection,
     manager_orders,
@@ -33,7 +34,6 @@ from bot_admin import (
     set_delivery_status,
     set_order_status,
 )
-
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -262,6 +262,7 @@ def prev_product(update: Update, context: CallbackContext):
 def submit_order(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
+    print("------------------------ВВОШЛИ В Submit ORDer------------------")
     logger.info(
         f"full_name: {context.user_data['name']}, phone {context.user_data['phone']}, "
         f"address: {context.user_data['address']}")
@@ -369,9 +370,6 @@ def handle_button_click(update: Update, context: CallbackContext):
         return INPUT_DATA
 
 
-
-
-
 def show_order_form(update: Update, context: CallbackContext, error_message=None):
     user_data = context.user_data
     product = context.user_data['selected_product']
@@ -437,8 +435,8 @@ def handle_button_click_menu_order(update: Update, context: CallbackContext):
         return ConversationHandler.END
     elif query.data == 'submit_order':
         user_data = context.user_data
-        if all([user_data.get('name'), user_data.get('phone'), user_data.get('address'),
-                user_data.get('delivery_date_time')]):
+        if all([user_data.get('name'), user_data.get('phone'), user_data.get('address'), user_data.get('delivery_date_time')]):
+            print('Дошло до заказа')
             submit_order(update, context)
             caption = "Ваш заказ отправлен в обработку!\nМенеджер свяжется с вами в ближайшее время."
             photo_path = os.path.join('static', 'products', 'to', 'call_manager.jpg')
@@ -469,48 +467,22 @@ def input_data(update: Update, context: CallbackContext):
         context.user_data['phone'] = text
     elif query_data == 'input_address':
         context.user_data['address'] = text
-    # elif query_data == 'delivery_time':
-    #     # Проверка формата даты и времени
-    #     date_format = '%d.%m.%Y %H:%M'
-    #     try:
-    #         # Пробуем преобразовать текст в дату
-    #         delivery_time = datetime.strptime(text, date_format)
-    #         context.user_data['delivery_date_time'] = text
-    #         context.user_data['delivery_time'] = delivery_time
-    #         logger.info('Дата верная: %s', delivery_time)
-    #         print(f'Время доставки: {context.user_data["delivery_time"]}')
-    #     except ValueError:
-    #         # Если формат неверный, отправить ошибку
-    #         error_message = "‼️ Пожалуйста, введите дату и время в формате dd.mm.yyyy HH:MM ‼️"
-    #         show_order_form(update, context, error_message=error_message)
-    #         return INPUT_DATA
-
     elif query_data == 'delivery_time':
-# Заменяем запятые на точки и двоеточия на точки
-        text = text.replace(',', '.').replace(':', '.')
-
-        # Если год не указан, добавляем 2024
-        if '2024' not in text:
-            # Проверяем, есть ли дата в формате 'дд.мм.гггг'
-            if re.match(r'^\d{1,2}\.\d{1,2}\.\d{1,2} \d{1,2}\.\d{1,2}$', text):
-                text = text + ' 2024'  # Добавляем год 2024
-
-        # Проверка формата даты и времени
-        date_format = '%d.%m.%Y %H.%M'
+# Проверка формата даты и времени
+        date_format = '%d.%m.%Y %H:%M'
         try:
-            # Пробуем преобразовать текст в дату
+# Пробуем преобразовать текст в дату
             delivery_time = datetime.strptime(text, date_format)
             context.user_data['delivery_date_time'] = text
             context.user_data['delivery_time'] = delivery_time
             logger.info('Дата верная: %s', delivery_time)
             print(f'Время доставки: {context.user_data["delivery_time"]}')
         except ValueError:
-            logger.error('Неверный формат даты: %s', text)
-
+          # Если формат неверный, отправить ошибку
             error_message = "‼️ Пожалуйста, введите дату и время в формате dd.mm.yyyy HH:MM ‼️"
             show_order_form(update, context, error_message=error_message)
-            context.bot.delete_message(chat_id=chat_id, message_id=update.message.message_id)
             return INPUT_DATA
+
 
     elif query_data == 'input_comment':
         context.user_data['comment'] = text
@@ -524,7 +496,7 @@ def input_data(update: Update, context: CallbackContext):
 
 # Основная функция
 def main():
-    updater = Updater("7268072268:AAFAxYs0ZSawqivsxVO3aJSDYiA8pigD_V8", use_context=True)
+    updater = Updater("7932488994:AAHNVlbu0dNsfR25lK4ShXAg0HjdT5hq2kM", use_context=True)
 
     dp = updater.dispatcher
 
@@ -539,47 +511,16 @@ def main():
                          MessageHandler(Filters.text & ~Filters.command, input_data)],
             CONFIRMATION: [CallbackQueryHandler(submit_order, pattern='^submit_order$')]
         },
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler('cancel', cancel),
+                   CommandHandler('manager', manager_orders),
+                   CommandHandler('delivery', delivery_orders)]
     )
 
+    for handler in get_handlers():
+        dp.add_handler(handler)
+
     dp.add_handler(conv_handler)
-    dp.add_handler(CommandHandler("manager", manager_orders))
-    dp.add_handler(CommandHandler("delivery", delivery_orders))
-    dp.add_handler(CallbackQueryHandler(handle_order_selection, pattern="^order_admin_"))
-    dp.add_handler(
-        CallbackQueryHandler(
-            go_back_to_manager_orders, pattern="^back_to_manager_orders$"
-        )
-    )
-    dp.add_handler(
-        CallbackQueryHandler(
-            go_back_to_delivery_orders, pattern="^back_to_delivery_orders$"
-        )
-    )
-    dp.add_handler(
-        CallbackQueryHandler(change_order_status, pattern="^change_status_")
-    )
-    dp.add_handler(
-        CallbackQueryHandler(set_order_status, pattern="^setStatus_")
-    )
-    dp.add_handler(
-        CallbackQueryHandler(assign_delivery, pattern="^assign_delivery_")
-    )
-    dp.add_handler(
-        CallbackQueryHandler(add_comment, pattern="^comment_delivery_")
-    )
-    dp.add_handler(
-        MessageHandler(Filters.text & ~Filters.command, handle_comment_input)
-    )
-    dp.add_handler(
-        CallbackQueryHandler(set_delivery_person, pattern="^setDelivery_")
-    )
-    dp.add_handler(
-        CallbackQueryHandler(handle_delivery_order, pattern="^order_delivery_")
-    )
-    dp.add_handler(
-        CallbackQueryHandler(set_delivery_status, pattern="^setDeliveryStatus_")
-    )
+
 
     # Запуск бота
     updater.start_polling()
@@ -593,7 +534,6 @@ def main():
             # Ignore this specific error or handle it differently
             return
         else:
-            # Log or handle other errors
             logger.warning('Update "%s" caused error "%s"' % (update, context.error))
 
     dp.add_error_handler(error_handler)
