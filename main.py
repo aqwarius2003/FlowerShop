@@ -1,4 +1,5 @@
 # main.py
+from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, \
     TelegramError
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler, \
@@ -43,6 +44,8 @@ logger = logging.getLogger(__name__)
 EVENT, BUDGET, PRODUCT_SELECTION, INPUT_DATA, CONFIRMATION = range(5)
 
 users = {}
+load_dotenv()
+TOKEN = os.getenv('TG_BOT_TOKEN')
 
 
 # Основное меню с выбором события
@@ -496,7 +499,7 @@ def input_data(update: Update, context: CallbackContext):
 
 # Основная функция
 def main():
-    updater = Updater("7932488994:AAHNVlbu0dNsfR25lK4ShXAg0HjdT5hq2kM", use_context=True)
+    updater = Updater(TOKEN, use_context=True)
 
     dp = updater.dispatcher
 
